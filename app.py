@@ -13,7 +13,7 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 # Leer la API Key desde Streamlit Secrets
 API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_BASE = "https://openrouter.ai/api/v1"
-MODEL_NAME = "deepseek/deepseek-r1:free"
+MODEL_NAME = "meta-llama/llama-4-maverick:free"
 
 # Instrucciones del sistema
 INSTRUCCIONES_SISTEMA = """
