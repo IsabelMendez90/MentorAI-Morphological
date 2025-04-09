@@ -68,8 +68,6 @@ st.markdown(
 st.subheader("Asistente interactivo")
 st.markdown("Este asistente te ayuda a generar una matriz morfológica con soluciones para cada función técnica de tu producto.")
 
-
-
 # Paso 1: Formulario de contexto
 with st.expander("📋 Completa el contexto general antes de continuar", expanded=True):
     col1, col2 = st.columns(2)
@@ -252,7 +250,7 @@ Tienes la siguiente matriz morfológica con funciones y 5 soluciones posibles po
 Para cada función, selecciona una sola solución que sea la mejor bajo este criterio. Por cada selección, indica el número de solución elegida (por ejemplo S1, S2...), y justifica por qué la elegiste.
 
 Después, resume la combinación en una sola línea así:
-Criterio: {criterio_final} → [Función 1 (Sx)] + [Función 2 (Sx)] + ...
+Criterio: {criterio_final} → [Solución seleccionada 1 (Sx)] + [Solución seleccionada 2 (Sx)] + ...
 
 Estructura tu respuesta así:
 
@@ -261,7 +259,7 @@ Solución seleccionada: [texto completo de la solución] (Sx)
 Justificación: [una oración clara]
 
 Resumen al final:
-Criterio: {criterio_final} → [Función 1 [texto completo de la solución]] + [Función 2 [texto completo de la solución]] + ...
+Criterio: {criterio_final} → [Solución seleccionada 1 (Sx)] + [Solución seleccionada 2 (Sx)] + ...
 ...
 
 Funciones y opciones:
