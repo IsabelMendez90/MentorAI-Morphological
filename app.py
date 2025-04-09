@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 import json
 import pandas as pd
 import re
@@ -47,7 +47,7 @@ def obtener_respuesta_funcion(mensaje):
             {"role": "system", "content": INSTRUCCIONES_SISTEMA},
             {"role": "user", "content": mensaje}
         ]
-        client = openai.OpenAI(api_key=API_KEY, base_url=API_BASE)
+        client = OpenAI(api_key=API_KEY, base_url=API_BASE)
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=mensajes
@@ -63,7 +63,11 @@ def obtener_respuesta_funcion(mensaje):
 # Configuración de página
 st.set_page_config(page_title="Mentor-AI Matriz Morfológica", layout="wide")
 st.title("🧠 Mentor-AI: Matriz Morfológica")
+st.markdown(
+    "Creadores: Dra. J. Isabel Méndez Garduño & M.Sc. Miguel de J. Ramírez C., CMfgT ")
+st.subheader("Asistente interactivo")
 st.markdown("Este asistente te ayuda a generar una matriz morfológica con soluciones para cada función técnica de tu producto.")
+
 
 
 
