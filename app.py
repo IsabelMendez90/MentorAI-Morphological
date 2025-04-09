@@ -13,7 +13,7 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 # Leer la API Key desde Streamlit Secrets
 API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_BASE = "https://openrouter.ai/api/v1"
-MODEL_NAME = "meta-llama/llama-4-maverick:free"
+MODEL_NAME = "deepseek/deepseek-r1:free"
 
 # Instrucciones del sistema
 INSTRUCCIONES_SISTEMA = """
@@ -63,10 +63,9 @@ def obtener_respuesta_funcion(mensaje):
 # Configuración de página
 st.set_page_config(page_title="Mentor-AI Matriz Morfológica", layout="wide")
 st.title("🧠 Mentor-AI: Matriz Morfológica")
-st.markdown(
-    "Creadores: Dra. J. Isabel Méndez Garduño & M.Sc. Miguel de J. Ramírez C., CMfgT ")
-st.subheader("Asistente interactivo")
 st.markdown("Este asistente te ayuda a generar una matriz morfológica con soluciones para cada función técnica de tu producto.")
+
+
 
 # Paso 1: Formulario de contexto
 with st.expander("📋 Completa el contexto general antes de continuar", expanded=True):
@@ -326,4 +325,3 @@ if st.session_state.combinaciones_generadas:
             file_name=f"{fecha_hora_actual}-Tabla_M-Morfologica.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
