@@ -50,7 +50,11 @@ def obtener_respuesta_funcion(mensaje):
         client = OpenAI(api_key=API_KEY, base_url=API_BASE)
         completion = client.chat.completions.create(
             model=MODEL_NAME,
-            messages=mensajes
+            messages=mensajes,
+            extra_headers={
+                "HTTP-Referer": "https://mentor-ai-morpho.streamlit.app/",  
+                "X-Title": "Mentor-AI Matriz Morfológica"
+            }
         )
         if completion and completion.choices:
             return completion.choices[0].message.content
@@ -58,6 +62,7 @@ def obtener_respuesta_funcion(mensaje):
             return "⚠️ No se recibió una respuesta válida del modelo. Intenta nuevamente."
     except Exception as e:
         return f"❌ Error al conectarse con el modelo: {str(e)}"
+
 
 
 # Configuración de página
