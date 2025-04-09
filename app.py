@@ -53,7 +53,7 @@ def obtener_respuesta_funcion(mensaje):
             messages=mensajes,
             extra_headers={
                 "HTTP-Referer": "https://mentor-ai-morpho.streamlit.app/",  
-                "X-Title": "Mentor-AI Matriz Morfológica"
+                "X-Title": "Mentor-AI Matriz Morfologica"
             }
         )
         if completion and completion.choices:
