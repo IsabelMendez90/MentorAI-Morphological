@@ -1,246 +1,331 @@
 import streamlit as st
 import openai
-import markdown2  
+import json
+import pandas as pd
+import re
+from datetime import datetime
 from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.enums import TA_LEFT
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-from datetime import datetime
 
-#  **Rol Correcto del Chatbot (Solo para uso interno)** 
-INSTRUCCIONES_SISTEMA = """
-Eres "Challenge Mentor AI", un asistente diseñado para ayudar a estudiantes de Mecatrónica en el modelo TEC21
-a definir su reto dentro del enfoque de Challenge-Based Learning (CBL). Debes hacer preguntas estructuradas
-para guiar a los alumnos en la identificación de su contexto, problemática y propuesta de solución.
-A continuación se definen los elementos que se integran en el marco propuesto por Apple para el Aprendizaje Basado en Retos (CBL) en la etapa de Engage:
-• Idea general: Es un concepto amplio que puede ser explorado en múltiples formas, es atractivo, de importancia para los estudiantes y para la sociedad. Es un tópico con significancia global, por ejemplo la
-biodiversidad, la salud, la guerra, la sostenibilidad, la democracia o la resiliencia. A Big Idea is a broad theme or concept presenting multiple possibilities for exploration and is important in the student’s context and the socio formador. Examples of big ideas include Community, Relationships, Creativity, Health, Sustainability, and Democracy.
-• Pregunta esencial: Por su diseño, la idea general posibilita la generación de una amplia variedad de preguntas. El proceso se va acotando hacia la pregunta esencial que refleja el interés de los
-estudiantes y las necesidades de la comunidad. Crea un enfoque más específico para la idea general y guía a los estudiantes hacia aspectos más manejables del concepto global. By design, the big idea generates essential questions that reflect student interests and the socio formador’s needs (e.g. Why is this important to me? Where does this concept intersect with my world? etc.). At the end of the Essential Questioning process is identifying one Essential Question with contextual meaning.
-• Reto: Surge de la pregunta esencial, es articulado e implica a los estudiantes crear una solución específica que resultará en una acción concreta y significativa. El reto está enmarcado para abordar la
-idea general y las preguntas esenciales con acciones locales. The challenge turns the essential question into a call to action to learn deeply about the subject. A challenge is actionable and builds excitement.
-The Engage phase concludes with identifying a compelling and actionable Challenge statement.
-
-Tus acciones deben ser las siguientes:
-
-Existe un formato, llamado "Formato A" que se le pide a un equipo de alumnos de último semestre de la carrera de Ingeniería en Mecatrónica.
-Es un Formato que sirve para dar de alta el proyecto que se llama "Formato de Alta de Reto Integrador" y este se compone de los siguientes elementos:
-• Nombre del reto
-• Tipo de reto: a) Reto de Desarrollo de productos/procesos/servicios automatizados; b) Reto de Investigación relacionado con Mecatrónica; c) Reto de Emprendimiento tecnológico relacionados con Mecatrónica
-• Socio Formador
-• Breve descripción general del reto, que consiste en responder lo siguiente: a) problemática por resolver (¿qué?); b) contexto y justificación de la problemática (¿por qué?); c) primeras ideas de solución visualizada por el socio (¿cómo?); d) resultados y alcances esperados; e) posibles obstáculos visualizados para lograr objetivos.
-
-Tu propósito como Challenge Mentor AI:
-• Recibir de los alumnos del CBL la "Idea general", que pertence al Formato A, por lo que recibirás el nombre del reto, tipo de reto, socio formador, breve descripción general del reto.
-• Debes guiar al alumno para que cuando no conteste todo, poco a poco le vayas sacando la información y orientándolo a tener más información sobre la "Idea general".
-• Cuando ya tengas claridad sobre la "Idea general", debes sugerirle tres "Preguntas esenciales" alineadas a su "Idea general".
-• Todos los alumnos deben cumplir con el perfil de especialistsa téctnico, por lo que maneja la conversación en precisión técnica, normativas y estándares industriales.
-• Dale una retroalimentación al usuario después de que haya enviado un "📢 Dame una Retroalimentación", y para ello sigue la fase Engage del CBL, primero recibe la "Idea general" y ya después propón las tres preguntas esenciales.
-• Usa frases motivadoras y estructuradas para guiar el proceso.
-• Si das un dato basado en conocimientos generales, indícalo claramente sin mencionar autores o publicaciones específicas.
-• Clasifica automáticamente al usuario en un perfil basado en sus respuestas, sin preguntarle directamente.
-• Adapta el tono según el perfil: usa términos técnicos para Especialistas, hipótesis para Investigadores, y mercado para Emprendedores de prueba de concepto y Emprendedores de prototipo comercial.
-• Hata que los alumnos lo soliciten, brida las opciones de reto acorde a las "preguntas esenciales".
-
-No hacer:
-• No les des la pregunta hasta que el estudiante haya ingresado los elementos de "Idea general".
-• Si el usuario pide una referencia, responde con: "No tengo acceso a bases de datos académicas en tiempo real. Te sugiero buscar en fuentes como Google Scholar, IEEE Xplore, o Scopus."
-• No generes referencias falsas ni números de DOI ficticios.
-• No proporciones referencias a artículos, DOIs, páginas web, normativas o autores específicos a menos que el usuario haya ingresado una fuente verificada.
-• No les des el reto del "ENGAGE"
-"""
 
 # Leer la API Key desde Streamlit Secrets
 API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_BASE = "https://openrouter.ai/api/v1"
 MODEL_NAME = "deepseek/deepseek-r1:free"
 
-#  Función para obtener respuesta del chatbot
-def obtener_respuesta_chat(messages):
-    client = openai.OpenAI(
-        api_key=API_KEY,
-        base_url=API_BASE
-    )
-    completion = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "system", "content": INSTRUCCIONES_SISTEMA}] + messages
-    )
-    respuesta = completion.choices[0].message.content
+# Instrucciones del sistema
+INSTRUCCIONES_SISTEMA = """
+Eres un asistente experto en diseño de productos como integrador de sistemas mecatrónicos. Tu tarea es ayudar a generar soluciones para funciones de productos. 
+Cuando el usuario proporcione una función, y su contexto de aplicación, debes responder con 5 soluciones técnicas viables, diversas y contextualizadas. Usa un lenguaje técnico, claro y conciso.
+"""
 
-    # Verificar si la respuesta contiene referencias falsas y eliminarlas
-    if "DOI" in respuesta or "et al." in respuesta or "gov.mx" in respuesta or "10." in respuesta:
-        return "La información proporcionada debe verificarse en bases de datos académicas. Sin embargo, basándonos en tu contexto, aquí hay un análisis: " + respuesta
+# Inicializar estados de sesión
+if "contexto_general" not in st.session_state:
+    st.session_state.contexto_general = {}
 
-    return respuesta
+if "historial_funciones" not in st.session_state:
+    st.session_state.historial_funciones = []
+
+if "respuestas_soluciones" not in st.session_state:
+    st.session_state.respuestas_soluciones = []
+
+if "limpiar_input" not in st.session_state:
+    st.session_state.limpiar_input = False
+
+if "matriz_generada" not in st.session_state:
+    st.session_state.matriz_generada = False
+
+if "combinaciones_generadas" not in st.session_state:
+    st.session_state.combinaciones_generadas = []
+
+# Función para obtener respuesta del modelo
+def obtener_respuesta_funcion(mensaje):
+    try:
+        mensajes = [
+            {"role": "system", "content": INSTRUCCIONES_SISTEMA},
+            {"role": "user", "content": mensaje}
+        ]
+        client = openai.OpenAI(api_key=API_KEY, base_url=API_BASE)
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=mensajes
+        )
+        if completion and completion.choices:
+            return completion.choices[0].message.content
+        else:
+            return "⚠️ No se recibió una respuesta válida del modelo. Intenta nuevamente."
+    except Exception as e:
+        return f"❌ Error al conectarse con el modelo: {str(e)}"
 
 
-#  Inicializar historial de mensajes y estado si no existen
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "responses" not in st.session_state:
-    st.session_state.responses = {}
-
-if "retroalimentacion_completada" not in st.session_state:
-    st.session_state.retroalimentacion_completada = False
-
-if "interacciones_chat" not in st.session_state:
-    st.session_state.interacciones_chat = 0
-
-#  Título e introducción
-st.title("🤖 Challenge Mentor AI")
+# Configuración de página
+st.set_page_config(page_title="Mentor-AI Matriz Morfológica", layout="wide")
+st.title("🧠 Mentor-AI: Matriz Morfológica")
 st.markdown(
     "Creadores: Dra. J. Isabel Méndez Garduño & M.Sc. Miguel de J. Ramírez C., CMfgT ")
-st.subheader("Guía interactiva para definir tu reto en el modelo TEC21 de Mecatrónica.")
-st.markdown(
-    "Este asistente te ayudará paso a paso a estructurar tu reto dentro del enfoque de **Challenge-Based Learning (CBL)**. "
-    "Recibirás **PREGUNTAS ESENCIALES** para que propongas tu reto.")
+st.subheader("Asistente interactivo")
+st.markdown("Este asistente te ayuda a generar una matriz morfológica con soluciones para cada función técnica de tu producto.")
 
-#  Formulario para capturar información del usuario
-with st.form("challenge_form"):
-    nombre_proyecto = st.text_input("📌 Nombre del Proyecto")
-    tipo_proyecto = st.selectbox(
-        "⚙️ Tipo de Reto",
-        ["Reto de Desarrollo de productos/procesos/servicios automatizados", "Reto de Investigación relacionado con Mecatrónica", "Reto de Emprendimiento tecnológico relacionados con Mecatrónica - Prueba de concepto", "Reto de Emprendimiento tecnológico relacionados con Mecatrónica - Prototipo comercial"]
-    )
-    perfil_usuario = st.selectbox(
-        "👤 Perfil del Usuario",
-        ["Innovador/a", "Emprendedor/a", "Investigador/a", "Solucionador/a"]
-    )
-    socio_formador = st.text_input("👥 Socio Formador o Cliente (SIEMENS, Rockwell, emprendimiento, etc.)")
-    contexto = st.text_area("🌍 PROBLEMÁTICA POR RESOLVER (¿QUÉ?)")
-    problema = st.text_area("🚨 CONTEXTO Y JUSTIFICACIÓN DE LA PROBLEMÁTICA (¿POR QUÉ?)")
-    impacto = st.text_area("🎯 PRIMERAS IDEAS DE SOLUCIÓN VISUALIZADA POR EL SOCIO (¿COMO?)")
-    propuesta_solucion = st.text_area("💡 RESULTADOS Y ALCANCES ESPERADOS")
-    posibles_obstaculos = st.text_area("🚧 POSIBLES OBSTÁCULOS VISUALIZADOS PARA LOGRAR LOS OBJETIVOS")
 
-    submit_button = st.form_submit_button("📢 Dame una Retroalimentación")
 
-#  Procesar información del formulario
-if submit_button:
-    if not nombre_proyecto or not contexto or not problema or not propuesta_solucion:
-        st.warning("⚠️ Completa todos los campos antes de continuar.")
-    else:
-        st.session_state.responses = {
-            "📌 Nombre del Proyecto": nombre_proyecto,
-            "⚙️ Tipo de Reto": tipo_proyecto,
-            "👤 Perfil del Usuario": perfil_usuario,
-            "👥 Socio Formador o Cliente": socio_formador,
-            "🌍 PROBLEMÁTICA POR RESOLVER (¿QUÉ?)": contexto,
-            "❌ CONTEXTO Y JUSTIFICACIÓN DE LA PROBLEMÁTICA (¿POR QUÉ?)": problema,
-            "🎯 PRIMERAS IDEAS DE SOLUCIÓN VISUALIZADA POR EL SOCIO (¿COMO?)": impacto,
-            "💡 RESULTADOS Y ALCANCES ESPERADOS": propuesta_solucion,
-            "🚧 POSIBLES OBSTÁCULOS VISUALIZADOS PARA LOGRAR LOS OBJETIVOS": posibles_obstaculos,
-                       
-        }
+# Paso 1: Formulario de contexto
+with st.expander("📋 Completa el contexto general antes de continuar", expanded=True):
+    col1, col2 = st.columns(2)
+    contexto = col1.text_area("a) Contexto del socio formador")
+    reto = col2.text_area("b) Reto específico")
+    necesidades = st.text_area("c) Necesidades del usuario")
+    tareas = st.text_area("d) Tareas del usuario")
+    ficha = st.text_area("e) Ficha técnica del prototipo o servicio")
 
-        user_message = "\n".join([f"**{key}:** {value}" for key, value in st.session_state.responses.items()])
-        st.session_state.messages.append({"role": "user", "content": user_message})
+contexto_completo = all([contexto.strip(), reto.strip(), necesidades.strip(), tareas.strip(), ficha.strip()])
 
-        with st.spinner("📢 Generando retroalimentación..."):
-            respuesta_chatbot = obtener_respuesta_chat(st.session_state.messages)
+if contexto_completo:
+    st.session_state.contexto_general = {
+        "contexto": contexto,
+        "reto": reto,
+        "necesidades": necesidades,
+        "tareas": tareas,
+        "ficha": ficha,
+    }
 
-        st.session_state.messages.append({"role": "assistant", "content": respuesta_chatbot})
-        st.session_state.retroalimentacion_completada = True
-        st.rerun()
+# Paso 2: Historial tipo chat
+st.subheader("💬 Historial de funciones y soluciones generadas")
+if st.session_state.historial_funciones:
+    for i in range(len(st.session_state.historial_funciones)):
+        st.chat_message("user").write(st.session_state.historial_funciones[i])
+        st.chat_message("assistant").markdown(st.session_state.respuestas_soluciones[i])
+else:
+    st.info("Aquí aparecerán las funciones que ingreses y las soluciones que te sugiera Mentor AI.")
 
-#  Mostrar historial de conversación
-if st.session_state.retroalimentacion_completada:
-    st.subheader("📝 Historial de Conversación")
-    for msg in st.session_state.messages:
-        if msg["role"] == "user":
-            st.markdown(f"👨‍🎓 **Tú:** {msg['content']}")
-        elif msg["role"] == "assistant":
-            st.markdown(f"🤖 **Challenge Mentor AI:** {msg['content']}")
+# Mostrar historial de combinaciones
+if st.session_state.combinaciones_generadas:
+    st.subheader("🧠 Combinaciones óptimas generadas:")
+    for idx, combinacion in enumerate(st.session_state.combinaciones_generadas, 1):
+        st.markdown(f"**Propuesta #{idx}:**")
+        st.markdown(combinacion)
 
-    user_input = st.text_area("💬 Escribe aquí tu pregunta:", height=100)
 
-    if st.button("Enviar"):
-        if user_input.strip():
-            st.session_state.messages.append({"role": "user", "content": user_input})
+# Paso 3: Ingreso de funciones (solo si contexto completo)
+st.divider()
+st.subheader("➕ Ingresa una nueva función")
 
-            with st.spinner("🤖 Generando respuesta..."):
-                chatbot_response = obtener_respuesta_chat(st.session_state.messages)
+if not contexto_completo:
+    st.warning("⚠️ Completa el contexto general antes de ingresar funciones.")
+else:
+    if st.session_state.limpiar_input:
+        st.session_state.funcion_input = ""
+        st.session_state.limpiar_input = False
 
-            st.session_state.messages.append({"role": "assistant", "content": chatbot_response})
+    with st.form("form_funcion"):
+        nueva_funcion = st.text_input("🔹 Escribe la función del producto", key="funcion_input")
+        enviar = st.form_submit_button("Generar soluciones")
+        if enviar and nueva_funcion.strip():
+            contexto_info = st.session_state.contexto_general
+            prompt_funcion = f"""
+La función del producto es: {nueva_funcion.strip()}.
 
-            st.session_state.interacciones_chat += 1
+Aquí tienes el contexto general del proyecto para generar soluciones más apropiadas:
+
+a) Contexto del socio formador:
+{contexto_info['contexto']}
+
+b) Reto específico:
+{contexto_info['reto']}
+
+c) Necesidades del usuario:
+{contexto_info['necesidades']}
+
+d) Tareas del usuario:
+{contexto_info['tareas']}
+
+e) Ficha técnica del prototipo:
+{contexto_info['ficha']}
+
+Con base en esta información, proporciona exactamente **5 soluciones técnicas posibles** para esta función.
+Para cada una, sigue este formato:
+- Escribe únicamente el **nombre/título** de la solución como encabezado.
+- Luego agrega una breve descripción que contenga 4 secciones:
+  - Tecnología:
+  - Funcionamiento:
+  - Ventajas:
+  - Desventajas:
+
+Al final, si es útil, agrega una sección de **Notas transversales**.
+No uses numeración ni encabezados como \"Solución 1:\", solo el nombre de cada solución como título.
+"""
+            with st.spinner("🧠 Generando soluciones..."):
+                respuesta = obtener_respuesta_funcion(prompt_funcion)
+            st.session_state.historial_funciones.append(nueva_funcion.strip())
+            st.session_state.respuestas_soluciones.append(respuesta)
+            st.session_state.limpiar_input = True
             st.rerun()
-        else:
-            st.warning("⚠️ Por favor, escribe tu pregunta antes de enviar.")
-st.markdown("⚠️ **Nota:** Este asistente no tiene acceso a bases de datos científicas en tiempo real. Para obtener referencias confiables, consulta fuentes como [Google Scholar](https://scholar.google.com/), [IEEE Xplore](https://ieeexplore.ieee.org/), o [Scopus](https://www.scopus.com/).")
 
-# --- Estilos PDF ---
-styles = getSampleStyleSheet()
-title_style = ParagraphStyle("Title", parent=styles["Title"], fontSize=16, spaceAfter=10, alignment=TA_LEFT, textColor="darkblue")
-author_style = ParagraphStyle("Author", parent=styles["Normal"], fontSize=10, spaceAfter=8, alignment=TA_LEFT)
-description_style = ParagraphStyle("Description", parent=styles["Normal"], fontSize=10, spaceAfter=12, leading=14, alignment=TA_LEFT)
-subtitle_style = ParagraphStyle("Subtitle", parent=styles["Heading1"], fontSize=14, spaceAfter=10, alignment=TA_LEFT, textColor="darkblue")
-text_style = ParagraphStyle("Text", parent=styles["Normal"], fontSize=10, spaceAfter=10, leading=14, alignment=TA_LEFT)
+# Matriz morfológica
+st.divider()
+if len(st.session_state.historial_funciones) >= 3:
+    if st.button("📄 Generar Matriz Morfológica"):
+        matriz_data = []
+        secciones = ["tecnología", "funcionamiento", "ventajas", "desventajas"]
 
-def markdown_to_paragraph(md_text, style=text_style):
-    html_text = markdown2.markdown(md_text).replace("\n", "<br/>")
-    return Paragraph(html_text, style)
+        for i, funcion in enumerate(st.session_state.historial_funciones):
+            soluciones_texto = st.session_state.respuestas_soluciones[i]
+            lineas = soluciones_texto.strip().split("\n")
+            soluciones = []
 
-# --- Generación del PDF ---
-pdf_buffer = BytesIO()
-doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
-content = [
-    Paragraph("Challenge Mentor AI", title_style),
-    Spacer(1, 5),
-    Paragraph("Creado por Dra. J. Isabel Méndez Garduño & M.Sc. Miguel de J. Ramírez C., CMfgT", author_style),
-    Spacer(1, 5),
-    Paragraph("Guía interactiva para definir tu reto en el modelo TEC21 de Mecatrónica...", description_style),
-    Spacer(1, 10),
-    Paragraph("Reporte de Conversación - Challenge Mentor AI", subtitle_style),
-    Spacer(1, 12)
-]
-for msg in st.session_state.messages:
-    role = "👨‍🎓 Usuario:" if msg["role"] == "user" else "🤖 Challenge Mentor AI:"
-    content.append(markdown_to_paragraph(f"**{role}**\n\n{msg['content']}"))
-    content.append(Spacer(1, 12))
-doc.build(content)
-pdf_buffer.seek(0)
+            for idx, linea in enumerate(lineas):
+                linea_clean = linea.strip()
+                if not linea_clean:
+                    continue
+                if not any(sec in linea_clean.lower() for sec in secciones):
+                    siguientes = lineas[idx+1:idx+5]  # buscar en las siguientes 4 líneas
+                    if any(any(sec in s.lower() for sec in secciones) for s in siguientes):
+                        titulo = re.sub(r'^[-•*\d+\s]*', '', linea_clean)
+                        titulo = titulo.replace("**", "").strip()
+                        soluciones.append(titulo)
 
-# --- Generación del Word ---
-def generar_word(messages):
+            soluciones = (soluciones + ["—"] * 5)[:5]
+            matriz_data.append([funcion] + soluciones)
+
+        df_morfologica = pd.DataFrame(matriz_data, columns=[
+            "Función", "Solución 1", "Solución 2", "Solución 3", "Solución 4", "Solución 5"
+        ])
+        st.session_state.df_morfologica = df_morfologica
+        st.session_state.matriz_generada = True
+
+if st.session_state.get("matriz_generada", False):
+    st.subheader("🧩 Matriz Morfológica Generada")
+    st.dataframe(st.session_state.df_morfologica, use_container_width=True)
+
+    # Paso 5: Generar combinación por criterio
+    st.divider()
+    st.subheader("🎯 Propuestas de combinación según criterio")
+
+    criterios_predefinidos = [
+        "Tecnología avanzada",
+        "Costo-beneficio",
+        "Más barato",
+        "Más realista",
+        "Rápido de implementar",
+        "Otro"
+    ]
+
+    col1, col2 = st.columns(2)
+    criterio_default = col1.selectbox("Selecciona un criterio predefinido:", criterios_predefinidos)
+
+    criterio_personalizado = ""
+    if criterio_default == "Otro":
+        criterio_personalizado = col2.text_input("Escribe tu propio criterio:")
+
+
+
+
+    if st.button("🔍 Generar combinación óptima"):
+        criterio_final = criterio_personalizado.strip() if criterio_default == "Otro" and criterio_personalizado.strip() else criterio_default
+
+        funciones = st.session_state.historial_funciones
+        opciones = []
+
+        for i, soluciones_texto in enumerate(st.session_state.respuestas_soluciones):
+            soluciones = []
+            lineas = soluciones_texto.strip().split("\n")
+            secciones = ["tecnología", "funcionamiento", "ventajas", "desventajas"]
+
+            for idx, linea in enumerate(lineas):
+                linea_clean = linea.strip()
+                if not linea_clean:
+                    continue
+                if not any(sec in linea_clean.lower() for sec in secciones):
+                    siguientes = lineas[idx+1:idx+5]
+                    if any(any(sec in s.lower() for sec in secciones) for s in siguientes):
+                        titulo = re.sub(r'^[-•*\d+\s]*', '', linea_clean)
+                        titulo = titulo.replace("**", "").strip()
+                        soluciones.append(titulo)
+
+            soluciones = (soluciones + ["—"] * 5)[:5]
+            opciones.append({"funcion": funciones[i], "opciones": soluciones})
+
+        prompt = f"""
+Tienes la siguiente matriz morfológica con funciones y 5 soluciones posibles por cada una. El criterio de evaluación es: "{criterio_final}".
+
+Para cada función, selecciona una sola solución que sea la mejor bajo este criterio. Por cada selección, indica el número de solución elegida (por ejemplo S1, S2...), y justifica por qué la elegiste.
+
+Después, resume la combinación en una sola línea así:
+Criterio: {criterio_final} → [Función 1 (Sx)] + [Función 2 (Sx)] + ...
+
+Estructura tu respuesta así:
+
+Función: [nombre]
+Solución seleccionada: [texto completo de la solución] (Sx)
+Justificación: [una oración clara]
+
+Resumen al final:
+Criterio: {criterio_final} → [Función 1 [texto completo de la solución]] + [Función 2 [texto completo de la solución]] + ...
+...
+
+Funciones y opciones:
+{json.dumps(opciones, indent=2, ensure_ascii=False)}
+"""
+
+        with st.spinner("🧠 Analizando combinación óptima..."):
+            resultado_combinacion = obtener_respuesta_funcion(prompt)
+
+        resumen_limpio = resultado_combinacion.replace("Resumen al final:\nCriterio seleccionado →", f"Criterio: {criterio_final} →")
+        st.session_state.combinaciones_generadas.append(resumen_limpio)
+
+
+# Mostrar historial de combinaciones
+if st.session_state.combinaciones_generadas:
+    st.subheader("🧠 Combinaciones óptimas generadas:")
+    for idx, combinacion in enumerate(st.session_state.combinaciones_generadas, 1):
+        st.markdown(f"**Propuesta #{idx}:**")
+        st.markdown(combinacion)
+
+    # 🔽 Mostrar botones de descarga SIEMPRE que haya combinaciones
+    st.divider()
+    st.subheader("📥 Descargar reportes")
+
+    fecha_hora_actual = datetime.now().strftime("%Y%m%d-%H%M")
+
     doc = Document()
-    doc.add_heading('Challenge Mentor AI', level=0)
-    doc.add_paragraph("Creado por Dra. J. Isabel Méndez Garduño & M.Sc. Miguel de J. Ramírez C., CMfgT")
-    doc.add_paragraph("Guía interactiva para definir tu reto en el modelo TEC21 de Mecatrónica...")
-    doc.add_heading("Reporte de Conversación - Challenge Mentor AI", level=1)
-    for msg in messages:
-        role = "👨‍🎓 Usuario:" if msg["role"] == "user" else "🤖 Challenge Mentor AI:"
-        para = doc.add_paragraph()
-        run = para.add_run(f"{role}\n{msg['content']}\n")
-        run.font.size = Pt(11)
-        para.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-    word_buffer = BytesIO()
-    doc.save(word_buffer)
-    word_buffer.seek(0)
-    return word_buffer
+    doc.add_heading("Reporte Mentor-AI: Matriz Morfológica", level=1)
+    doc.add_heading("📌 Contexto General", level=2)
+    doc.add_paragraph(f"Contexto del socio formador: {st.session_state.contexto_general['contexto']}")
+    doc.add_paragraph(f"Reto específico: {st.session_state.contexto_general['reto']}")
+    doc.add_paragraph(f"Necesidades del usuario: {st.session_state.contexto_general['necesidades']}")
+    doc.add_paragraph(f"Tareas del usuario: {st.session_state.contexto_general['tareas']}")
+    doc.add_paragraph(f"Ficha técnica del prototipo: {st.session_state.contexto_general['ficha']}")
 
-# --- Nombre dinámico de archivo ---
-fecha_hora_actual = datetime.now().strftime("%Y%m%d-%H%M")
-nombre_archivo = f"{fecha_hora_actual}-Reporte_CBL"
+    doc.add_heading("🔧 Funciones y soluciones generadas", level=2)
+    for i, (funcion, respuesta) in enumerate(zip(st.session_state.historial_funciones, st.session_state.respuestas_soluciones)):
+        doc.add_heading(f"Función {i+1}: {funcion}", level=3)
+        p = doc.add_paragraph(respuesta)
+        p.style.font.size = Pt(11)
 
-# --- Botones de descarga ---
-st.subheader("📄 Descargar Reportes")
-st.download_button(
-    label="📄 Descargar Reporte en PDF",
-    data=pdf_buffer,
-    file_name=f"{nombre_archivo}.pdf",
-    mime="application/pdf"
-)
+    doc.add_heading("🎯 Combinaciones óptimas generadas", level=2)
+    for i, combinacion in enumerate(st.session_state.combinaciones_generadas):
+        doc.add_paragraph(f"Propuesta #{i+1}:")
+        doc.add_paragraph(combinacion)
 
-word_buffer = generar_word(st.session_state.messages)
-st.download_button(
-    label="📄 Descargar Reporte en Word",
-    data=word_buffer,
-    file_name=f"{nombre_archivo}.docx",
-    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
+    buffer_word = BytesIO()
+    doc.save(buffer_word)
+    buffer_word.seek(0)
+    st.download_button(
+        label="📄 Descargar Word",
+        data=buffer_word,
+        file_name=f"{fecha_hora_actual}-Reporte_M-Morfologica.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+    if "df_morfologica" in st.session_state:
+        buffer_excel = BytesIO()
+        st.session_state.df_morfologica.to_excel(buffer_excel, index=False)
+        buffer_excel.seek(0)
+        st.download_button(
+            label="📊 Descargar Excel",
+            data=buffer_excel,
+            file_name=f"{fecha_hora_actual}-Tabla_M-Morfologica.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
