@@ -38,7 +38,7 @@ if st.button("Enviar"):
                     messages=mensajes,
                     extra_headers={
                         "HTTP-Referer": "https://tu-app.streamlit.app/",
-                        "X-Title": "Prueba de conexión"
+                        "X-Title": "Prueba de conexion"
                     }
                 )
                 if respuesta and respuesta.choices:
