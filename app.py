@@ -347,8 +347,8 @@ if st.session_state.combinaciones_generadas:
         doc.add_paragraph(f"Propuesta #{i+1}:")
         for linea in combinacion.split("\n"):
             if linea.strip():
-                texto_limpio = agregar_parrafo_con_formato(doc, linea.strip())
-                doc.add_paragraph(texto_limpio)
+                p = agregar_parrafo_con_formato(doc, linea.strip())
+                p.style.font.size = Pt(11)
 
     buffer_word = BytesIO()
     doc.save(buffer_word)
