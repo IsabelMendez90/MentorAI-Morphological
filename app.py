@@ -281,6 +281,38 @@ Funciones y opciones:
         st.session_state.combinaciones_generadas.append(resumen_limpio)
 
 
+def agregar_parrafo_con_formato(doc, texto):
+    parrafo = doc.add_paragraph()
+    cursor = 0
+    while cursor < len(texto):
+        if texto[cursor:cursor+2] == '**':
+            cursor += 2
+            fin = texto.find('**', cursor)
+            if fin == -1:
+                parrafo.add_run('**' + texto[cursor:])  # por si está mal cerrado
+                break
+            run = parrafo.add_run(texto[cursor:fin])
+            run.bold = True
+            cursor = fin + 2
+        elif texto[cursor] == '*':
+            cursor += 1
+            fin = texto.find('*', cursor)
+            if fin == -1:
+                parrafo.add_run('*' + texto[cursor:])
+                break
+            run = parrafo.add_run(texto[cursor:fin])
+            run.italic = True
+            cursor = fin + 1
+        else:
+            fin = cursor
+            while fin < len(texto) and texto[fin] != '*' and texto[fin:fin+2] != '**':
+                fin += 1
+            parrafo.add_run(texto[cursor:fin])
+            cursor = fin
+    return parrafo
+
+
+
 # Mostrar historial de combinaciones
 if st.session_state.combinaciones_generadas:
     st.subheader("🧠 Combinaciones óptimas generadas:")
@@ -306,13 +338,36 @@ if st.session_state.combinaciones_generadas:
     doc.add_heading("🔧 Funciones y soluciones generadas", level=2)
     for i, (funcion, respuesta) in enumerate(zip(st.session_state.historial_funciones, st.session_state.respuestas_soluciones)):
         doc.add_heading(f"Función {i+1}: {funcion}", level=3)
-        p = doc.add_paragraph(respuesta)
-        p.style.font.size = Pt(11)
+        for linea in respuesta.split("\n"):
+            if linea.strip():
+                p = agregar_parrafo_con_formato(doc, linea.strip())
+                p.style.font.size = Pt(11)
 
     doc.add_heading("🎯 Combinaciones óptimas generadas", level=2)
     for i, combinacion in enumerate(st.session_state.combinaciones_generadas):
         doc.add_paragraph(f"Propuesta #{i+1}:")
         doc.add_paragraph(combinacion)
+
+    buffer_word = BytesIO()
+    doc.save(buffer_word)
+    buffer_word.seek(0)
+    st.download_button(
+        label="📄 Descargar Word",
+        data=buffer_word,
+        file_name=f"{fecha_hora_actual}-Reporte_M-Morfologica.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+    if "df_morfologica" in st.session_state:
+        buffer_excel = BytesIO()
+        st.session_state.df_morfologica.to_excel(buffer_excel, index=False)
+        buffer_excel.seek(0)
+        st.download_button(
+            label="📊 Descargar Excel",
+            data=buffer_excel,
+            file_name=f"{fecha_hora_actual}-Tabla_M-Morfologica.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     buffer_word = BytesIO()
     doc.save(buffer_word)
