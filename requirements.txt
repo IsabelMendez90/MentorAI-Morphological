@@ -5,3 +5,4 @@ streamlit-chat
 markdown2
 python-docx
 pandas
+openpyxl
