@@ -368,26 +368,3 @@ if st.session_state.combinaciones_generadas:
             file_name=f"{fecha_hora_actual}-Tabla_M-Morfologica.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-    buffer_word = BytesIO()
-    doc.save(buffer_word)
-    buffer_word.seek(0)
-    st.download_button(
-        label="📄 Descargar Word",
-        data=buffer_word,
-        file_name=f"{fecha_hora_actual}-Reporte_M-Morfologica.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-
-    if "df_morfologica" in st.session_state:
-        buffer_excel = BytesIO()
-        st.session_state.df_morfologica.to_excel(buffer_excel, index=False)
-        buffer_excel.seek(0)
-        st.download_button(
-            label="📊 Descargar Excel",
-            data=buffer_excel,
-            file_name=f"{fecha_hora_actual}-Tabla_M-Morfologica.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-
