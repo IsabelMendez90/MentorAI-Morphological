@@ -15,7 +15,6 @@ API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_BASE = "https://openrouter.ai/api/v1"
 MODEL_NAME = "deepseek/deepseek-r1:free"
 
-
 # Instrucciones del sistema
 INSTRUCCIONES_SISTEMA = """
 Eres un asistente experto en diseño de productos como integrador de sistemas mecatrónicos. Tu tarea es ayudar a generar soluciones para funciones de productos. 
@@ -345,8 +344,11 @@ if st.session_state.combinaciones_generadas:
 
     doc.add_heading("🎯 Combinaciones óptimas generadas", level=2)
     for i, combinacion in enumerate(st.session_state.combinaciones_generadas):
-        doc.add_paragraph(f"Propuesta #{i+1}:")
-        doc.add_paragraph(combinacion)
+    doc.add_paragraph(f"Propuesta #{i+1}:")
+    for linea in combinacion.split("\n"):
+        if linea.strip():
+            texto_limpio = linea.replace("**", "").replace("*", "")
+            doc.add_paragraph(texto_limpio)
 
     buffer_word = BytesIO()
     doc.save(buffer_word)
@@ -367,4 +369,7 @@ if st.session_state.combinaciones_generadas:
             data=buffer_excel,
             file_name=f"{fecha_hora_actual}-Tabla_M-Morfologica.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+
         )
