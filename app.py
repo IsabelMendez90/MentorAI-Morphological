@@ -370,6 +370,3 @@ if st.session_state.combinaciones_generadas:
             file_name=f"{fecha_hora_actual}-Tabla_M-Morfologica.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
-        )
