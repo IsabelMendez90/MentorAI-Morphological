@@ -344,11 +344,11 @@ if st.session_state.combinaciones_generadas:
 
     doc.add_heading("🎯 Combinaciones óptimas generadas", level=2)
     for i, combinacion in enumerate(st.session_state.combinaciones_generadas):
-    doc.add_paragraph(f"Propuesta #{i+1}:")
-    for linea in combinacion.split("\n"):
-        if linea.strip():
-            texto_limpio = linea.replace("**", "").replace("*", "")
-            doc.add_paragraph(texto_limpio)
+        doc.add_paragraph(f"Propuesta #{i+1}:")
+        for linea in combinacion.split("\n"):
+            if linea.strip():
+                texto_limpio = linea.replace("**", "").replace("*", "")
+                doc.add_paragraph(texto_limpio)
 
     buffer_word = BytesIO()
     doc.save(buffer_word)
