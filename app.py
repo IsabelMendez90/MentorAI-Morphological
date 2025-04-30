@@ -66,8 +66,8 @@ def obtener_respuesta_funcion(mensaje):
 
 
 # Configuración de página
-st.set_page_config(page_title="Mentor-AI Matriz Morfológica", layout="wide")
-st.title("🤖 Challenge Mentor AI - Matriz Morfológica")
+st.set_page_config(page_title="AI Challenge Mentor Matriz Morfológica", layout="wide")
+st.title("🤖 AI Challenge Mentor - Matriz Morfológica")
 st.markdown(
     "Creadores: Dra. J. Isabel Méndez Garduño & M.Sc. Miguel de J. Ramírez C., CMfgT ")
 st.subheader("Asistente interactivo")
